@@ -1,19 +1,20 @@
 //
-//  ViewController.swift
+//  SettingsViewController.swift
 //  technique
 //
-//  Created by Abdiel Mg on 21/07/23.
+//  Created by Abdiel Mg on 24/07/23.
 //
 
 import UIKit
 
-class ViewController: UIViewController {
+class SettingsViewController: UIViewController {
 
     override func viewDidLoad() {
         super.viewDidLoad()
+
         // Do any additional setup after loading the view.
     }
+    
 
 
 }
-
