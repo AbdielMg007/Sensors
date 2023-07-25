@@ -17,6 +17,8 @@ class ViewController: UIViewController {
     var titleNames = ["Configuracion", "Comentarios"]
     var images = ["settings", "feedback"]
     var sideBarOpen = true
+    
+    private let surfaceDetectionManager = SurfaceDetectionManager()
     let motionManager = CMMotionManager()
 
     override func viewDidLoad() {
@@ -63,76 +65,67 @@ class ViewController: UIViewController {
         let seconds = remainingTime % 60
         timerLabel.text = String(format: "%02d:%02d:%02d", hours, minutes, seconds)
     }
-    
-    func isDeviceOnFlatSurface(completion: @escaping (Bool) -> Void) {
-        if CMMotionManager().isAccelerometerAvailable {
-            let motionManager = CMMotionManager()
-            motionManager.accelerometerUpdateInterval = 0.1
-
-            motionManager.startAccelerometerUpdates(to: OperationQueue.main) { (data, error) in
-                guard let accelerometerData = data else {
-                    // En caso de error o datos nulos, asumimos que no está en una superficie plana
-                    completion(false)
-                    print(data)
-                    return
-                }
-
-                // Verificar la orientación del eje z (vertical)
-                let verticalAcceleration = accelerometerData.acceleration.z
-                let threshold: Double = -0.98 // Valor cercano a 1 indicaría una superficie plana
-
-                // Detener las actualizaciones del acelerómetro para ahorrar batería
-                motionManager.stopAccelerometerUpdates()
-                
-                print(verticalAcceleration)
-
-                if verticalAcceleration <= threshold {
-                    completion(true)
-                } else {
-                    completion(false)
-                }
-            }
-        } else {
-            completion(false)
-        }
-    }
 
     func startClock() {
-        //Iniciar el cronometro
-        isDeviceOnFlatSurface { isFlat in
-            DispatchQueue.main.async {
+        //se inicia el temporizador
+        self.actionButton.backgroundColor = self.isButtonActive ? .orange : .red
+        self.textAux = self.isButtonActive ? "Aceptar" : "Cancelar"
+        self.actionButton.setTitle(self.textAux, for: .normal)
+        self.isButtonActive = !isButtonActive
+        
+        if isButtonActive{
+            validateSurface()
+            surfaceDetectionManager.startSurfaceDetection()
+        } else{
+            messageWait.isHidden = true
+            pauseButton.isHidden = true
+            stopClock()
+            surfaceDetectionManager.stopSurfaceDetection()
+        }
+    }
+    
+    func validateSurface(){
+        //valida en tiempo real la posicion del iphone
+        surfaceDetectionManager.surfaceStatusChanged = { [weak self] isFlat in
+            DispatchQueue.main.async { [self] in
                 if isFlat {
-                    self.messageWait.isHidden = true
-                    self.pauseButton.isHidden = true
-                    self.runClock()
-                    print("El dispositivo SI está en una superficie plana.")
+                    self?.pauseButton.isHidden = false
+                    self?.messageWait.isHidden = true
+                    self?.runClock()
                 } else {
-                    print("El dispositivo NO está en una superficie plana.")
+                    self?.pauseButton.isHidden = true
+                    self?.messageWait.isHidden = false
+                    self?.stopClock()
                 }
                 
-                self.messageWait.isHidden = self.isButtonActive
-                self.actionButton.backgroundColor = self.isButtonActive ? .orange : .red
-                self.textAux = self.isButtonActive ? "Aceptar" : "Cancelar"
-                self.actionButton.setTitle(self.textAux, for: .normal)
-                self.isButtonActive.toggle()
             }
         }
     }
 
     func pauseOrContinueButton() {
         //pausar o continuar ya sabiendo que esta en vertical
-        runClock()
+        isButtonPause = !isButtonPause
         pauseButton.setTitle(isButtonPause ? "Reanudar" : "Pausar", for: .normal)
+        if isButtonPause{
+            stopClock()
+        }else{
+            runClock()
+        }
     }
     
-    func runClock(){
-        //empieza a avanzar el reloj
+    func stopClock() {
+        // Detener el reloj
         if let timer = timer, timer.isValid {
             timer.invalidate()
-            isButtonPause = false
-        } else {
-            timer = Timer.scheduledTimer(timeInterval: 1.0, target: self, selector: #selector(updateCountdown), userInfo: nil, repeats: true)
-            isButtonPause = true
+        }
+    }
+
+    func runClock() {
+        // Iniciar o reanudar el reloj
+        if isButtonPause == false{
+            if timer == nil || !timer!.isValid {
+                timer = Timer.scheduledTimer(timeInterval: 1.0, target: self, selector: #selector(updateCountdown), userInfo: nil, repeats: true)
+            }
         }
     }
     
@@ -163,6 +156,8 @@ class ViewController: UIViewController {
             timer = nil
         }
     }
+    
+    
 }
 
 extension ViewController: UITableViewDelegate, UITableViewDataSource {
